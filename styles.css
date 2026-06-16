@@ -369,7 +369,7 @@ body {
   .app-shell {
     height: 100svh;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(240px, 42svh) minmax(150px, 25svh) minmax(0, 1fr);
+    grid-template-rows: minmax(180px, 30svh) minmax(260px, 36svh) minmax(0, 1fr);
   }
 
   .map-pane,
@@ -395,15 +395,31 @@ body {
     font-size: 18px;
   }
 
+  .sidebar-header h1 {
+    display: none;
+  }
+
+  .sidebar-header h2 {
+    margin-bottom: 6px;
+  }
+
+  .field-label {
+    margin-bottom: 4px;
+  }
+
+  .dataset-select {
+    margin-bottom: 7px;
+  }
+
   .dataset-select,
   #routeSearch {
-    padding: 10px 11px;
+    padding: 9px 10px;
     border-radius: 10px;
     font-size: 16px;
   }
 
   .counts {
-    margin-top: 8px;
+    margin-top: 6px;
   }
 
   .route-list {
