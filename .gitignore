@@ -1,0 +1,17 @@
+# GTFS source archives and extracted working files
+gtfs/*.zip
+.gtfs_work/
+
+# Local server logs
+*.log
+
+# Dependencies and caches
+node_modules/
+.cache/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

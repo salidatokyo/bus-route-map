@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>路線バス ルートマップ</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <main class="map-pane">
+      <div id="map"></div>
+      <div class="map-status" id="mapStatus">系統を選択してください</div>
+    </main>
+
+    <aside class="route-pane">
+      <header class="sidebar-header">
+        <h1>路線バス ルートマップ</h1>
+        <h2>系統一覧</h2>
+        <p>一覧から系統を選ぶと、地図上に運行ルートと停留所を表示します。</p>
+        <label class="field-label" for="datasetSelect">表示するバス事業者</label>
+        <select id="datasetSelect" class="dataset-select"></select>
+        <input id="routeSearch" type="search" placeholder="例：1、四条河原町" />
+        <div class="counts"><span id="routeCount"></span><span id="patternCount"></span></div>
+      </header>
+      <section class="route-list" id="routeList" aria-label="系統一覧"></section>
+    </aside>
+
+    <aside class="detail-pane">
+      <header class="panel-heading">
+        <h2>経路一覧・停留所</h2>
+      </header>
+      <section class="detail" id="detail">
+        <div class="empty">系統を選択すると、経路パターンと停留所が表示されます。</div>
+      </section>
+      <p class="data-notice">本アプリケーション等が利用する公共交通データは、公共交通オープンデータセンターにおいて提供されるものです。
+公共交通事業者により提供されたデータを元にしていますが、必ずしも正確・完全なものとは限りません。
+本アプリケーションの表示内容について、公共交通事業者への直接の問い合わせは行わないでください。</p>
+    </aside>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

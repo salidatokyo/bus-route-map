@@ -1,0 +1,467 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #162033;
+  background: #f5f7fb;
+}
+
+.app-shell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 26vw, 380px) clamp(310px, 26vw, 400px);
+  overflow: hidden;
+}
+
+.map-pane {
+  position: relative;
+  min-width: 0;
+  height: 100vh;
+  background: #e8eef7;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+.map-status {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 500;
+  max-width: min(640px, calc(100% - 32px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
+  font-size: 14px;
+}
+
+.route-pane,
+.detail-pane {
+  min-width: 0;
+  height: 100vh;
+  display: grid;
+  background: #fff;
+  border-left: 1px solid #d8dfec;
+}
+
+.route-pane {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.detail-pane {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.sidebar-header,
+.panel-heading {
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid #e7ebf2;
+}
+
+.sidebar-header h1,
+.panel-heading h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.sidebar-header h1 {
+  margin-bottom: 4px;
+}
+
+.sidebar-header h2 {
+  margin: 0 0 8px;
+  color: #445064;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.sidebar-header p {
+  margin: 0 0 12px;
+  color: #5a6475;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.field-label {
+  display: block;
+  margin: 0 0 5px;
+  color: #445064;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dataset-select,
+#routeSearch {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid #cfd7e6;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 15px;
+  outline: none;
+}
+
+.dataset-select {
+  margin-bottom: 10px;
+}
+
+.dataset-select:focus,
+#routeSearch:focus {
+  border-color: #3887ff;
+  box-shadow: 0 0 0 3px rgba(56, 135, 255, .15);
+}
+
+.counts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.counts span {
+  padding: 4px 9px;
+  border: 1px solid #dfe5ef;
+  border-radius: 999px;
+  background: #f7f9fc;
+  color: #445064;
+  font-size: 12px;
+}
+
+.route-list {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+  background: #fbfcff;
+}
+
+.route-card {
+  width: 100%;
+  min-height: 54px;
+  margin-bottom: 8px;
+  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e2e7f0;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.route-card:hover {
+  border-color: #aebbd0;
+  background: #f8fbff;
+}
+
+.route-card.active {
+  border-color: #2b7cff;
+  box-shadow: 0 0 0 3px rgba(43, 124, 255, .12);
+}
+
+.badge {
+  min-width: 76px;
+  min-height: 30px;
+  padding: 5px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.route-card .info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.route-card .name {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.route-card .sub {
+  color: #687487;
+  font-size: 12px;
+}
+
+.detail {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(112px, 36%) minmax(0, 1fr);
+  overflow: hidden;
+  padding: 14px 16px 20px;
+}
+
+.empty {
+  padding: 18px;
+  border: 1px dashed #cfd7e6;
+  border-radius: 8px;
+  background: #fbfcff;
+  color: #69758a;
+  line-height: 1.6;
+}
+
+.detail-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.detail-title h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.pattern-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.pattern-scroll,
+.stop-scroll {
+  min-height: 0;
+  overflow: auto;
+}
+
+.pattern-scroll {
+  margin: 2px 0 12px;
+  padding-right: 4px;
+  border-bottom: 1px solid #e8edf5;
+}
+
+.stop-scroll {
+  padding-right: 4px;
+}
+
+.pattern-tab {
+  padding: 10px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pattern-tab:hover {
+  background: #f8fbff;
+}
+
+.pattern-tab.active {
+  border-color: transparent;
+}
+
+.pattern-tab strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.pattern-tab span {
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: .82;
+}
+
+.stop-list {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid #e8edf5;
+  list-style: none;
+}
+
+.stop-list li {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 9px 2px;
+  border-bottom: 1px solid #edf1f7;
+  cursor: pointer;
+}
+
+.stop-list li:hover {
+  background: #f8fbff;
+}
+
+.seq {
+  color: #6a7587;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stop-name {
+  font-weight: 600;
+}
+
+.data-notice {
+  margin: 0;
+  padding: 10px 14px 12px;
+  border-top: 1px solid #e7ebf2;
+  background: #fbfcff;
+  color: #7a8494;
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.leaflet-container {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.leaflet-control-attribution {
+  font-size: 10px;
+}
+
+.leaflet-tile {
+  filter: saturate(.55) brightness(1.08) contrast(.88);
+  opacity: .78;
+}
+
+@media (max-width: 1100px) {
+  .app-shell {
+    grid-template-columns: minmax(0, 1fr) 300px 330px;
+  }
+
+  .sidebar-header,
+  .panel-heading {
+    padding: 14px 14px 10px;
+  }
+
+  .sidebar-header p {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  html,
+  body {
+    overflow: hidden;
+  }
+
+  .app-shell {
+    height: 100svh;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(240px, 42svh) minmax(150px, 25svh) minmax(0, 1fr);
+  }
+
+  .map-pane,
+  .route-pane,
+  .detail-pane {
+    height: auto;
+    min-height: 0;
+  }
+
+  .route-pane,
+  .detail-pane {
+    border-left: none;
+    border-top: 1px solid #d8dfec;
+  }
+
+  .sidebar-header,
+  .panel-heading {
+    padding: 10px 12px 9px;
+  }
+
+  .sidebar-header h1,
+  .panel-heading h2 {
+    font-size: 18px;
+  }
+
+  .dataset-select,
+  #routeSearch {
+    padding: 10px 11px;
+    border-radius: 10px;
+    font-size: 16px;
+  }
+
+  .counts {
+    margin-top: 8px;
+  }
+
+  .route-list {
+    padding: 8px;
+  }
+
+  .route-card {
+    min-height: 48px;
+    margin-bottom: 6px;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .badge {
+    min-width: 58px;
+    min-height: 28px;
+    border-radius: 7px;
+    font-size: 12px;
+  }
+
+  .detail {
+    grid-template-rows: auto minmax(84px, 34%) minmax(0, 1fr);
+    padding: 10px 12px 12px;
+  }
+
+  .detail-title h2 {
+    font-size: 17px;
+  }
+
+  .pattern-tabs {
+    gap: 6px;
+  }
+
+  .pattern-scroll {
+    margin-bottom: 8px;
+  }
+
+  .pattern-tab {
+    padding: 8px;
+  }
+
+  .stop-list li {
+    grid-template-columns: 34px 1fr;
+    padding: 8px 0;
+  }
+
+  .map-status {
+    left: 10px;
+    top: 10px;
+    max-width: calc(100% - 20px);
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+
+  .data-notice {
+    padding: 7px 10px calc(7px + env(safe-area-inset-bottom));
+    font-size: 8.5px;
+    line-height: 1.45;
+  }
+}
