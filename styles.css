@@ -369,7 +369,7 @@ body {
   .app-shell {
     height: 100svh;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(180px, 30svh) minmax(260px, 36svh) minmax(0, 1fr);
+    grid-template-rows: minmax(140px, 22svh) minmax(300px, 43svh) minmax(0, 1fr);
   }
 
   .map-pane,
@@ -476,8 +476,6 @@ body {
   }
 
   .data-notice {
-    padding: 7px 10px calc(7px + env(safe-area-inset-bottom));
-    font-size: 8.5px;
-    line-height: 1.45;
+    display: none;
   }
 }

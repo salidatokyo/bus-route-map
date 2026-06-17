@@ -4,6 +4,7 @@ gtfs/*.zip
 
 # Local server logs
 *.log
+mobile-preview.png
 
 # Dependencies and caches
 node_modules/
