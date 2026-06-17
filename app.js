@@ -1,10 +1,11 @@
-const DATASETS = window.BUS_ROUTE_DATASETS || {
+const DATASETS = window.BUS_ROUTE_MANIFEST || window.BUS_ROUTE_DATASETS || {
   default_dataset: 'kyoto',
   datasets: { kyoto: window.KYOTO_CITY_BUS_DATA },
 };
-let DATA = DATASETS.datasets[DATASETS.default_dataset] || Object.values(DATASETS.datasets)[0];
+const DATA_CACHE = new Map();
+let DATA = null;
 let map, shapeLayer, stopLayer;
-const state = { datasetId: DATA?.id || DATASETS.default_dataset, routeId: null, patternIndex: 0 };
+const state = { datasetId: DATASETS.default_dataset || Object.keys(DATASETS.datasets || {})[0], routeId: null, patternIndex: 0 };
 const $ = (id) => document.getElementById(id);
 const SEARCH_EXAMPLES = {
   kyoto: '1、四条河原町',
@@ -13,6 +14,27 @@ const SEARCH_EXAMPLES = {
   keio: '西55、聖蹟桜ヶ丘駅',
   yokohama: '001、中山駅前',
 };
+
+function datasetEntries() {
+  return Object.values(DATASETS.datasets || {}).filter(Boolean);
+}
+
+function datasetInfo(datasetId) {
+  return (DATASETS.datasets || {})[datasetId] || datasetEntries()[0];
+}
+
+async function loadDataset(datasetId) {
+  const info = datasetInfo(datasetId);
+  if (!info) throw new Error('Dataset is not configured.');
+  if (info.routes) return info;
+  if (DATA_CACHE.has(datasetId)) return DATA_CACHE.get(datasetId);
+
+  const response = await fetch(info.data_url || `data/${datasetId}.json`);
+  if (!response.ok) throw new Error(`Failed to load ${info.label || datasetId}.`);
+  const dataset = await response.json();
+  DATA_CACHE.set(datasetId, dataset);
+  return dataset;
+}
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -63,7 +85,8 @@ function compareRoutes(a, b) {
 }
 
 function initMap() {
-  map = L.map('map', { preferCanvas: true, zoomControl: true }).setView(DATA.map_center || [35.0116, 135.7681], DATA.map_zoom || 12);
+  const initialDataset = datasetInfo(state.datasetId);
+  map = L.map('map', { preferCanvas: true, zoomControl: true }).setView(initialDataset?.map_center || [35.0116, 135.7681], initialDataset?.map_zoom || 12);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors',
@@ -148,6 +171,10 @@ function routeSummary(route) {
 }
 
 function renderRouteList() {
+  if (!DATA) {
+    $('routeList').innerHTML = '<div class="empty">Loading route data...</div>';
+    return;
+  }
   const q = $('routeSearch').value.trim();
   const list = DATA.routes.filter((r) => routeMatches(r, q)).sort(compareRoutes);
   $('routeList').innerHTML = list.map((r) => `
@@ -161,15 +188,16 @@ function renderRouteList() {
 function renderDatasetSelect() {
   const select = $('datasetSelect');
   if (!select) return;
-  select.innerHTML = Object.values(DATASETS.datasets).map((dataset) => (
+  select.innerHTML = datasetEntries().map((dataset) => (
     `<option value="${escapeHtml(dataset.id)}">${escapeHtml(dataset.label)}</option>`
   )).join('');
   select.value = state.datasetId;
 }
 
 function renderCounts() {
-  $('routeCount').textContent = `${DATA.route_count}系統`;
-  $('patternCount').textContent = `${DATA.pattern_count}経路パターン`;
+  const source = DATA || datasetInfo(state.datasetId) || {};
+  $('routeCount').textContent = `${source.route_count || 0}系統`;
+  $('patternCount').textContent = `${source.pattern_count || 0}経路パターン`;
 }
 
 function updateSearchPlaceholder() {
@@ -259,22 +287,41 @@ function renderDetail() {
   }));
 }
 
-function selectDataset(datasetId) {
-  const dataset = DATASETS.datasets[datasetId];
-  if (!dataset) return;
-  DATA = dataset;
+async function selectDataset(datasetId) {
+  const info = datasetInfo(datasetId);
+  if (!info) return;
   state.datasetId = datasetId;
   state.routeId = null;
   state.patternIndex = 0;
+  DATA = null;
   $('routeSearch').value = '';
   shapeLayer.clearLayers();
   stopLayer.clearLayers();
-  map.setView(DATA.map_center || [35.0116, 135.7681], DATA.map_zoom || 12);
-  $('mapStatus').textContent = '系統を選択してください';
-  $('detail').innerHTML = '<div class="empty">系統を選択すると、経路パターンと停留所が表示されます。</div>';
+  map.setView(info.map_center || [35.0116, 135.7681], info.map_zoom || 12);
+  $('mapStatus').textContent = 'データを読み込んでいます...';
+  $('detail').innerHTML = '<div class="empty">データを読み込んでいます...</div>';
   updateSearchPlaceholder();
   renderCounts();
   renderRouteList();
+  $('datasetSelect').disabled = true;
+
+  try {
+    const dataset = await loadDataset(datasetId);
+    if (state.datasetId !== datasetId) return;
+    DATA = dataset;
+    map.setView(DATA.map_center || [35.0116, 135.7681], DATA.map_zoom || 12);
+    $('mapStatus').textContent = '系統を選択してください';
+    $('detail').innerHTML = '<div class="empty">系統を選択すると、経路パターンと停留所が表示されます。</div>';
+    renderCounts();
+    renderRouteList();
+  } catch (error) {
+    if (state.datasetId !== datasetId) return;
+    $('mapStatus').textContent = 'データの読み込みに失敗しました';
+    $('routeList').innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
+    $('detail').innerHTML = '<div class="empty">時間をおいて再度選択してください。</div>';
+  } finally {
+    if (state.datasetId === datasetId) $('datasetSelect').disabled = false;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -282,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSearchPlaceholder();
   renderCounts();
   initMap();
-  renderRouteList();
   $('datasetSelect').addEventListener('change', (event) => selectDataset(event.target.value));
   $('routeSearch').addEventListener('input', renderRouteList);
+  selectDataset(state.datasetId);
 });

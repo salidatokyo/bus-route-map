@@ -400,14 +400,37 @@ async function main() {
     await Promise.all(datasets.map(async (config) => [config.id, await buildDataset(config)])),
   );
 
-  const payload = {
+  const dataDir = path.join(root, 'data');
+  fs.mkdirSync(dataDir, { recursive: true });
+
+  for (const dataset of Object.values(builtDatasets)) {
+    fs.writeFileSync(
+      path.join(dataDir, `${dataset.id}.json`),
+      `${JSON.stringify(dataset)}\n`,
+      'utf8',
+    );
+  }
+
+  const manifest = {
     default_dataset: 'kyoto',
-    datasets: builtDatasets,
+    datasets: Object.fromEntries(Object.values(builtDatasets).map((dataset) => [
+      dataset.id,
+      {
+        id: dataset.id,
+        label: dataset.label,
+        generated_from: dataset.generated_from,
+        map_center: dataset.map_center,
+        map_zoom: dataset.map_zoom,
+        route_count: dataset.route_count,
+        pattern_count: dataset.pattern_count,
+        data_url: `data/${dataset.id}.json`,
+      },
+    ])),
   };
 
   fs.writeFileSync(
     path.join(root, 'data.js'),
-    `window.BUS_ROUTE_DATASETS = ${JSON.stringify(payload)};\nwindow.KYOTO_CITY_BUS_DATA = window.BUS_ROUTE_DATASETS.datasets.kyoto;\n`,
+    `window.BUS_ROUTE_MANIFEST = ${JSON.stringify(manifest)};\n`,
     'utf8',
   );
 
