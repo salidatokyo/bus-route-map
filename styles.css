@@ -369,7 +369,7 @@ body {
   .app-shell {
     height: 100svh;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(230px, 40svh) minmax(170px, 24svh) minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 36svh) minmax(150px, 22svh) minmax(260px, 1fr);
   }
 
   .map-pane,
@@ -387,7 +387,7 @@ body {
 
   .sidebar-header,
   .panel-heading {
-    padding: 10px 12px 9px;
+    padding: 8px 10px 7px;
   }
 
   .sidebar-header h1,
@@ -400,7 +400,8 @@ body {
   }
 
   .sidebar-header h2 {
-    margin-bottom: 6px;
+    margin-bottom: 4px;
+    font-size: 14px;
   }
 
   .field-label {
@@ -408,18 +409,18 @@ body {
   }
 
   .dataset-select {
-    margin-bottom: 7px;
+    margin-bottom: 5px;
   }
 
   .dataset-select,
   #routeSearch {
-    padding: 9px 10px;
+    padding: 7px 9px;
     border-radius: 10px;
     font-size: 16px;
   }
 
   .counts {
-    margin-top: 6px;
+    margin-top: 5px;
   }
 
   .route-list {
