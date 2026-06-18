@@ -369,7 +369,7 @@ body {
   .app-shell {
     height: 100svh;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(140px, 22svh) minmax(300px, 43svh) minmax(0, 1fr);
+    grid-template-rows: minmax(230px, 40svh) minmax(170px, 24svh) minmax(0, 1fr);
   }
 
   .map-pane,

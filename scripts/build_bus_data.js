@@ -50,6 +50,7 @@ const datasets = [
     zoom: 11,
     routePrefix: /^京王バス\s*/,
     color: '#dd1f26',
+    useRouteSortKey: true,
   },
   {
     id: 'yokohama',
@@ -61,6 +62,82 @@ const datasets = [
     zoom: 12,
     routePrefix: /系統$/,
     color: '#005bac',
+  },
+  {
+    id: 'kawasaki',
+    label: '川崎市営バス',
+    generatedFrom: 'Kawasaki_City_AllLines-20260528.zip',
+    zipPath: path.join(root, 'gtfs', 'Kawasaki_City_AllLines-20260528.zip'),
+    gtfsDir: path.join(root, '.gtfs_work', 'kawasaki'),
+    mapCenter: [35.5308, 139.7036],
+    zoom: 12,
+    routePrefix: /\s*$/,
+    color: '#007a3d',
+    forceColor: true,
+    useRouteSortKey: true,
+  },
+  {
+    id: 'odakyu',
+    label: '小田急バス',
+    generatedFrom: 'Odakyu_AIILines-20260601.zip',
+    zipPath: path.join(root, 'gtfs', 'Odakyu_AIILines-20260601.zip'),
+    gtfsDir: path.join(root, '.gtfs_work', 'odakyu'),
+    mapCenter: [35.6600, 139.5550],
+    zoom: 11,
+    routePrefix: /\s*$/,
+    color: '#0068b7',
+    fallbackLongNameForEmptyShort: true,
+    useRouteSortKey: true,
+    combineDuplicateShortNames: true,
+  },
+  {
+    id: 'aomori',
+    label: '青森市営バス',
+    generatedFrom: 'Aomori_City_AllLines-20260401.zip',
+    zipPath: path.join(root, 'gtfs', 'Aomori_City_AllLines-20260401.zip'),
+    gtfsDir: path.join(root, '.gtfs_work', 'aomori'),
+    mapCenter: [40.8221, 140.7474],
+    zoom: 12,
+    routePrefix: /\s*$/,
+    color: '#2f9e44',
+    useRouteSortKey: true,
+    combineDuplicateShortNames: true,
+  },
+  {
+    id: 'kanto',
+    label: '関東バス',
+    generatedFrom: 'Kanto_AllLines-20260507.zip',
+    zipPath: path.join(root, 'gtfs', 'Kanto_AllLines-20260507.zip'),
+    gtfsDir: path.join(root, '.gtfs_work', 'kanto'),
+    mapCenter: [35.7060, 139.6220],
+    zoom: 12,
+    routePrefix: /\s*$/,
+    color: '#0052b5',
+    useRouteSortKey: true,
+  },
+  {
+    id: 'seibu',
+    label: '西武バス',
+    generatedFrom: 'SeibuBus-GTFS.zip',
+    zipPath: path.join(root, 'gtfs', 'SeibuBus-GTFS.zip'),
+    gtfsDir: path.join(root, '.gtfs_work', 'seibu'),
+    mapCenter: [35.7800, 139.4700],
+    zoom: 11,
+    routePrefix: /\s*$/,
+    color: '#ea5504',
+    useRouteSortKey: true,
+  },
+  {
+    id: 'iyotetsu',
+    label: '伊予鉄バス',
+    generatedFrom: 'Iyotetsu_AllLines-20260519.zip',
+    zipPath: path.join(root, 'gtfs', 'Iyotetsu_AllLines-20260519.zip'),
+    gtfsDir: path.join(root, '.gtfs_work', 'iyotetsu'),
+    mapCenter: [33.8392, 132.7657],
+    zoom: 12,
+    routePrefix: /\s*$/,
+    color: '#f9c74b',
+    useRouteSortKey: true,
   },
 ];
 
@@ -169,8 +246,27 @@ function withHash(color, fallback) {
   return value ? `#${value}` : fallback;
 }
 
-function routeDisplayName(routeShortName, config) {
-  return (routeShortName || '').replace(config.routePrefix, '').trim() || routeShortName || '';
+function routeDisplayName(routeShortName, config, routeLongName = '') {
+  return (
+    (routeShortName || '').replace(config.routePrefix, '').trim() ||
+    routeShortName ||
+    (config.fallbackLongNameForEmptyShort ? routeLongName : '') ||
+    ''
+  );
+}
+
+function routeSortKey(routeName, routeId) {
+  const name = String(routeName || routeId || '').trim();
+  const kanji = name.match(/[一-龯々〆ヵヶ]/)?.[0];
+  if (kanji) return `0\u001f${kanji}\u001f${name}`;
+
+  const kana = name.match(/[ぁ-んァ-ン]/)?.[0];
+  if (kana) return `1\u001f${kana}\u001f${name}`;
+
+  const latin = name.match(/[A-Za-z]/)?.[0]?.toUpperCase();
+  if (latin) return `2\u001f${latin}\u001f${name}`;
+
+  return `3\u001f${name}`;
 }
 
 function keyForTrip(trip, stopIds) {
@@ -189,7 +285,7 @@ function timeLabel(time) {
   return `${h}:${m}`;
 }
 
-function serviceTypeMap(calendar) {
+function serviceTypeMap(calendar, calendarDates = []) {
   const types = new Map();
   for (const service of calendar) {
     types.set(service.service_id, {
@@ -197,6 +293,23 @@ function serviceTypeMap(calendar) {
       saturday: service.saturday === '1',
       holiday: service.sunday === '1',
     });
+  }
+  if (calendar.length > 0) return types;
+  for (const service of calendarDates) {
+    if (service.exception_type && service.exception_type !== '1') continue;
+    if (!/^\d{8}$/.test(service.date || '')) continue;
+    let type = types.get(service.service_id);
+    if (!type) {
+      type = { weekday: false, saturday: false, holiday: false };
+      types.set(service.service_id, type);
+    }
+    const year = Number(service.date.slice(0, 4));
+    const month = Number(service.date.slice(4, 6)) - 1;
+    const day = Number(service.date.slice(6, 8));
+    const weekday = new Date(Date.UTC(year, month, day)).getUTCDay();
+    if (weekday === 0) type.holiday = true;
+    else if (weekday === 6) type.saturday = true;
+    else type.weekday = true;
   }
   return types;
 }
@@ -254,7 +367,8 @@ async function buildDataset(config) {
   const stopsCsv = readCsv(gtfsDir, 'stops.txt');
   const tripsCsv = readCsv(gtfsDir, 'trips.txt');
   const shapesCsv = readOptionalCsv(gtfsDir, 'shapes.txt');
-  const calendarCsv = readCsv(gtfsDir, 'calendar.txt');
+  const calendarCsv = readOptionalCsv(gtfsDir, 'calendar.txt');
+  const calendarDatesCsv = readOptionalCsv(gtfsDir, 'calendar_dates.txt');
 
   const stops = new Map(stopsCsv.map((stop) => [
     stop.stop_id,
@@ -289,20 +403,45 @@ async function buildDataset(config) {
   }
 
   const routes = new Map();
-  for (const route of routesCsv) {
-    routes.set(route.route_id, {
-      route_id: route.route_id,
-      short_name: routeDisplayName(route.route_short_name, config),
+  const routeGroups = new Map();
+  routesCsv.forEach((route, routeIndex) => {
+    const shortName = routeDisplayName(route.route_short_name, config, route.route_long_name);
+    const shouldCombine = config.combineDuplicateShortNames && shortName;
+    const groupKey = shouldCombine ? `name:${shortName}` : `id:${route.route_id}`;
+    let routeData = routeGroups.get(groupKey);
+
+    if (routeData) {
+      routeData.source_route_ids.push(route.route_id);
+      if (route.route_long_name && !routeData.long_names.includes(route.route_long_name)) {
+        routeData.long_names.push(route.route_long_name);
+        routeData.long_name = routeData.long_names.join(' / ');
+      }
+      routes.set(route.route_id, routeData);
+      return;
+    }
+
+    routeData = {
+      route_id: shouldCombine ? groupKey : route.route_id,
+      short_name: shortName,
       full_short_name: route.route_short_name,
       long_name: route.route_long_name,
-      color: withHash(route.route_color, config.color),
-      text_color: withHash(route.route_text_color, '#ffffff'),
+      color: withHash(config.forceColor ? '' : route.route_color, config.color),
+      text_color: withHash(config.forceColor ? '' : route.route_text_color, '#ffffff'),
       patterns: [],
       pattern_count: 0,
-    });
-  }
+    };
+    if (shouldCombine) {
+      routeData.source_route_ids = [route.route_id];
+      routeData.long_names = route.route_long_name ? [route.route_long_name] : [];
+    }
+    if (config.useRouteSortKey) {
+      routeData.route_sort_key = routeSortKey(routeData.short_name || routeData.long_name, routeData.route_id);
+    }
+    routeGroups.set(groupKey, routeData);
+    routes.set(route.route_id, routeData);
+  });
 
-  const services = serviceTypeMap(calendarCsv);
+  const services = serviceTypeMap(calendarCsv, calendarDatesCsv);
   const tripStops = await readTripStops(gtfsDir);
   const patternMap = new Map();
 
@@ -355,7 +494,7 @@ async function buildDataset(config) {
     if (type?.holiday) pattern.trip_counts.holiday++;
   }
 
-  const routeList = [...routes.values()]
+  const routeList = [...routeGroups.values()]
     .filter((route) => route.patterns.length > 0)
     .map((route) => {
       const maxTripCount = Math.max(...route.patterns.map((pattern) => pattern.trip_count));

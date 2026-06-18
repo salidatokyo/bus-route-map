@@ -84,6 +84,21 @@ function compareRoutes(a, b) {
   return normalizeRouteName(a.short_name).localeCompare(normalizeRouteName(b.short_name), 'ja', { numeric: true });
 }
 
+function compareRoutesBySortKey(a, b) {
+  return (
+    String(a.route_sort_key || a.short_name || a.long_name || a.route_id).localeCompare(
+      String(b.route_sort_key || b.short_name || b.long_name || b.route_id),
+      'ja',
+    ) ||
+    String(a.long_name || '').localeCompare(String(b.long_name || ''), 'ja') ||
+    String(a.route_id || '').localeCompare(String(b.route_id || ''), 'ja', { numeric: true })
+  );
+}
+
+function routeComparator(datasetId) {
+  return ['keio', 'kawasaki', 'odakyu', 'aomori', 'kanto', 'seibu', 'iyotetsu'].includes(datasetId) ? compareRoutesBySortKey : compareRoutes;
+}
+
 function initMap() {
   const initialDataset = datasetInfo(state.datasetId);
   map = L.map('map', { preferCanvas: true, zoomControl: true }).setView(initialDataset?.map_center || [35.0116, 135.7681], initialDataset?.map_zoom || 12);
@@ -176,7 +191,7 @@ function renderRouteList() {
     return;
   }
   const q = $('routeSearch').value.trim();
-  const list = DATA.routes.filter((r) => routeMatches(r, q)).sort(compareRoutes);
+  const list = DATA.routes.filter((r) => routeMatches(r, q)).sort(routeComparator(DATA.id));
   $('routeList').innerHTML = list.map((r) => `
     <button class="route-card ${r.route_id === state.routeId ? 'active' : ''}" data-route-id="${escapeHtml(r.route_id)}">
       <span class="badge" style="background:${r.color};color:${textColorFor(r.color)}">${escapeHtml(r.short_name)}</span>
