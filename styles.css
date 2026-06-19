@@ -369,7 +369,7 @@ body {
   .app-shell {
     height: 100svh;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(220px, 40svh) minmax(150px, 22svh) minmax(240px, 1fr);
+    grid-template-rows: minmax(180px, 30svh) minmax(230px, 30svh) minmax(260px, 1fr);
   }
 
   .map-pane,
@@ -459,7 +459,7 @@ body {
   }
 
   .detail {
-    grid-template-rows: auto minmax(84px, 34%) minmax(0, 1fr);
+    grid-template-rows: auto minmax(96px, 36%) minmax(0, 1fr);
     padding: 10px 12px 12px;
   }
 
