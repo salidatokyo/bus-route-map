@@ -271,6 +271,14 @@ function patternSummary(pattern, arrow = '⇔', datasetId = DATA.id) {
   return headsign || first;
 }
 
+function displayHeadsign(pattern, datasetId = DATA.id) {
+  const headsign = cleanHeadsign(pattern.headsign);
+  if (headsign) return headsign;
+  if (isCircularPattern(pattern)) return patternSummary(pattern, '→', datasetId);
+  const last = pattern.stops?.[pattern.stops.length - 1]?.name || '';
+  return last || patternSummary(pattern, '→', datasetId) || '経路未設定';
+}
+
 function routeSummary(route) {
   const pattern = representativePattern(route);
   if (!pattern) return route.long_name || route.full_short_name || route.short_name;
@@ -338,7 +346,7 @@ function tripCountLabel(pattern) {
 
 function routePopupHtml(route, pattern) {
   const shapeNote = pattern.shape_id ? '' : '<br><span class="popup-note">推定経路</span>';
-  return `<strong>${escapeHtml(route.short_name)}</strong><br>${escapeHtml(patternSummary(pattern, '→', DATA.id) || pattern.headsign || '経路未設定')}<br>${tripCountLabel(pattern)}${shapeNote}`;
+  return `<strong>${escapeHtml(route.short_name)}</strong><br>${escapeHtml(displayHeadsign(pattern, DATA.id))}<br>${tripCountLabel(pattern)}${shapeNote}`;
 }
 
 function addRouteClickTarget(pattern, route, patternIndex, returnStopName = null) {
@@ -447,7 +455,7 @@ function drawPattern() {
     map.invalidateSize();
     if (bounds.isValid()) map.fitBounds(bounds, { padding: [42, 42], maxZoom: 16 });
   }, 50);
-  $('mapStatus').textContent = `${route.short_name} ${pattern.headsign || '行先未設定'} 停留所${pattern.stop_count}件`;
+  $('mapStatus').textContent = `${route.short_name} ${displayHeadsign(pattern, DATA.id)} 停留所${pattern.stop_count}件`;
 }
 
 function drawStopPatterns(matches = patternsForStop(state.stopName)) {
@@ -554,7 +562,7 @@ function renderDetail() {
     </button>`).join('');
   const stops = p.stops.map((s) => `<li data-stop-name="${escapeHtml(s.name)}" data-lat="${s.lat}" data-lon="${s.lon}"><span class="seq">${String(s.seq).padStart(2, '0')}</span><span class="stop-name">${escapeHtml(s.name)}</span></li>`).join('');
   $('detail').innerHTML = `
-    <div class="detail-title"><span class="badge" style="background:${route.color};color:${textColorFor(route.color)}">${escapeHtml(route.short_name)}</span><h2>${escapeHtml(p.headsign || '行先未設定')}</h2>${returnControls}</div>
+    <div class="detail-title"><span class="badge" style="background:${route.color};color:${textColorFor(route.color)}">${escapeHtml(route.short_name)}</span><h2>${escapeHtml(displayHeadsign(p, DATA.id))}</h2>${returnControls}</div>
     <div class="pattern-scroll"><div class="pattern-tabs">${tabs}</div></div>
     <div class="stop-scroll"><ol class="stop-list">${stops}</ol></div>`;
   $('detail').querySelector('.back-detail')?.addEventListener('click', () => selectStop(state.returnStopName));
@@ -575,7 +583,7 @@ function renderStopDetail(matches = patternsForStop(state.stopName)) {
     <button class="passing-route-card" data-route-id="${escapeHtml(route.route_id)}" data-pattern-index="${patternIndex}">
       <span class="badge" style="background:${route.color};color:${textColorFor(route.color)}">${escapeHtml(route.short_name)}</span>
       <span class="info">
-        <strong>${escapeHtml(patternSummary(pattern, '→', DATA.id) || pattern.headsign || '経路未設定')}</strong>
+        <strong>${escapeHtml(displayHeadsign(pattern, DATA.id))}</strong>
         <span>${tripCountLabel(pattern)} / 通過位置 ${stops.map((stop) => `${stop.seq}番`).join('、')}</span>
       </span>
     </button>`).join('');

@@ -1,6 +1,6 @@
 # 路線バス ルートマップ
 
-京都市営バス、都営バス、仙台市営バス、京王バス、横浜市営バスの GTFS を使った、系統別ルート確認用の静的 Web アプリです。
+京都市営バス、都営バス、仙台市営バス、京王バス、横浜市営バスなどの GTFS を使った、系統別ルート確認用の静的 Web アプリです。
 画面上部のプルダウンで表示するバス事業者を切り替えられます。
 
 ## 起動方法
@@ -28,6 +28,9 @@ GTFS zip を `gtfs` フォルダに置いてからデータを生成します。
 - `gtfs/Sendai_city_bus_realtime_information-20260601.zip`
 - `gtfs/Keio_AllLines-20260404.zip`
 - `gtfs/Yokohama_City_Bus-20260601.zip`
+- `gtfs/KeiseiBusChibaWest_AllLines-20260401.zip`
+- `gtfs/KyotoBus_AllLinesAnotherversion-20260617.zip`
+- `gtfs/IzuHakone_IZHB-20260701.zip`
 
 ```bash
 node scripts/build_bus_data.js
