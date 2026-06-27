@@ -5,7 +5,14 @@ const DATASETS = window.BUS_ROUTE_MANIFEST || window.BUS_ROUTE_DATASETS || {
 const DATA_CACHE = new Map();
 let DATA = null;
 let map, shapeLayer, stopLayer;
-const state = { datasetId: DATASETS.default_dataset || Object.keys(DATASETS.datasets || {})[0], routeId: null, patternIndex: 0 };
+const state = {
+  datasetId: DATASETS.default_dataset || Object.keys(DATASETS.datasets || {})[0],
+  routeId: null,
+  patternIndex: 0,
+  stopName: null,
+  returnStopName: null,
+  viewMode: 'route',
+};
 const $ = (id) => document.getElementById(id);
 const SEARCH_EXAMPLES = {
   kyoto: '1、四条河原町',
@@ -50,6 +57,11 @@ function textColorFor(bg) {
 
 function findRoute(id) {
   return DATA.routes.find((r) => r.route_id === id);
+}
+
+function setDetailHeading(text) {
+  const heading = document.querySelector('.panel-heading h2');
+  if (heading) heading.textContent = text;
 }
 
 function normalizeRouteName(name) {
@@ -115,11 +127,91 @@ function initMap() {
 function routeMatches(route, q) {
   if (!q) return true;
   const stopNames = route.patterns
-    .slice(0, 4)
     .flatMap((pattern) => pattern.stops.map((stop) => stop.name))
     .join(' ');
   const hay = [route.route_id, route.short_name, route.full_short_name, route.long_name, routeSummary(route), stopNames].join(' ').toLowerCase();
   return hay.includes(q.toLowerCase());
+}
+
+function collectStopOptions(q) {
+  const query = q.trim().toLowerCase();
+  if (!DATA || !query) return [];
+  const stops = new Map();
+
+  DATA.routes.forEach((route) => {
+    route.patterns.forEach((pattern) => {
+      pattern.stops.forEach((stop) => {
+        const name = stop.name || '';
+        if (!name.toLowerCase().includes(query)) return;
+        const item = stops.get(name) || { name, routeIds: new Set(), patternIds: new Set() };
+        item.routeIds.add(route.route_id);
+        item.patternIds.add(pattern.pattern_id);
+        stops.set(name, item);
+      });
+    });
+  });
+
+  return [...stops.values()]
+    .map((stop) => ({
+      name: stop.name,
+      routeCount: stop.routeIds.size,
+      patternCount: stop.patternIds.size,
+    }))
+    .sort((a, b) => (
+      Number(a.name.toLowerCase() !== query) - Number(b.name.toLowerCase() !== query) ||
+      a.name.length - b.name.length ||
+      b.routeCount - a.routeCount ||
+      a.name.localeCompare(b.name, 'ja', { numeric: true })
+    ))
+    .slice(0, 24);
+}
+
+function stopMarkerKey(stop) {
+  if (stop.stop_id) return stop.stop_id;
+  return `${stop.name}-${stop.lat}-${stop.lon}`;
+}
+
+function patternsForStop(stopName) {
+  if (!DATA || !stopName) return [];
+  const matches = [];
+  DATA.routes.forEach((route) => {
+    route.patterns.forEach((pattern, patternIndex) => {
+      const stops = pattern.stops.filter((stop) => stop.name === stopName);
+      if (stops.length > 0) matches.push({ route, pattern, patternIndex, stops });
+    });
+  });
+  return matches.sort((a, b) => (
+    routeComparator(DATA.id)(a.route, b.route) ||
+    String(a.pattern.direction_id).localeCompare(String(b.pattern.direction_id), 'ja', { numeric: true }) ||
+    String(a.pattern.pattern_id).localeCompare(String(b.pattern.pattern_id), 'ja', { numeric: true })
+  ));
+}
+
+function allStops() {
+  if (!DATA) return [];
+  const stops = new Map();
+  DATA.routes.forEach((route) => {
+    route.patterns.forEach((pattern) => {
+      pattern.stops.forEach((stop) => {
+        if (typeof stop.lat !== 'number' || typeof stop.lon !== 'number') return;
+        const key = stopMarkerKey(stop);
+        const item = stops.get(key) || {
+          stop,
+          routeIds: new Set(),
+          patternIds: new Set(),
+        };
+        item.routeIds.add(route.route_id);
+        item.patternIds.add(pattern.pattern_id);
+        stops.set(key, item);
+      });
+    });
+  });
+
+  return [...stops.values()].map((item) => ({
+    ...item.stop,
+    routeCount: item.routeIds.size,
+    patternCount: item.patternIds.size,
+  }));
 }
 
 function representativePattern(route) {
@@ -191,13 +283,27 @@ function renderRouteList() {
     return;
   }
   const q = $('routeSearch').value.trim();
+  const stopOptions = collectStopOptions(q);
   const list = DATA.routes.filter((r) => routeMatches(r, q)).sort(routeComparator(DATA.id));
-  $('routeList').innerHTML = list.map((r) => `
+  const stopHtml = stopOptions.length ? `
+    <div class="list-section-title">停留所候補</div>
+    ${stopOptions.map((stop) => `
+      <button class="stop-card ${state.viewMode === 'stop' && stop.name === state.stopName ? 'active' : ''}" data-stop-name="${escapeHtml(stop.name)}">
+        <span class="stop-dot" aria-hidden="true"></span>
+        <span class="info"><span class="name">${escapeHtml(stop.name)}</span><span class="sub">${stop.routeCount}系統 / ${stop.patternCount}経路パターン</span></span>
+      </button>`).join('')}` : '';
+  const routeHtml = list.map((r) => `
     <button class="route-card ${r.route_id === state.routeId ? 'active' : ''}" data-route-id="${escapeHtml(r.route_id)}">
       <span class="badge" style="background:${r.color};color:${textColorFor(r.color)}">${escapeHtml(r.short_name)}</span>
       <span class="info"><span class="name">${escapeHtml(routeSummary(r))}</span><span class="sub">${r.pattern_count} 経路パターン</span></span>
-    </button>`).join('') || '<div class="empty">該当する系統がありません。</div>';
-  $('routeList').querySelectorAll('.route-card').forEach((btn) => btn.addEventListener('click', () => selectRoute(btn.dataset.routeId, 0)));
+    </button>`).join('');
+  $('routeList').innerHTML = [
+    stopHtml,
+    stopHtml && routeHtml ? '<div class="list-section-title">系統候補</div>' : '',
+    routeHtml || (stopHtml ? '' : '<div class="empty">該当する系統・停留所がありません。</div>'),
+  ].join('');
+  $('routeList').querySelectorAll('.stop-card').forEach((btn) => btn.addEventListener('click', () => selectStop(btn.dataset.stopName)));
+  $('routeList').querySelectorAll('.route-card').forEach((btn) => btn.addEventListener('click', () => selectRoute(btn.dataset.routeId, 0, { returnStopName: null })));
 }
 
 function renderDatasetSelect() {
@@ -230,14 +336,71 @@ function tripCountLabel(pattern) {
   return `平日 ${counts.weekday}本 / 土曜 ${counts.saturday}本 / 休日 ${counts.holiday}本`;
 }
 
-function selectRoute(routeId, patternIndex) {
+function routePopupHtml(route, pattern) {
+  const shapeNote = pattern.shape_id ? '' : '<br><span class="popup-note">推定経路</span>';
+  return `<strong>${escapeHtml(route.short_name)}</strong><br>${escapeHtml(patternSummary(pattern, '→', DATA.id) || pattern.headsign || '経路未設定')}<br>${tripCountLabel(pattern)}${shapeNote}`;
+}
+
+function addRouteClickTarget(pattern, route, patternIndex, returnStopName = null) {
+  return L.polyline(pattern.shape, {
+    color: '#000',
+    weight: 18,
+    opacity: 0,
+    interactive: true,
+    lineCap: 'round',
+    lineJoin: 'round',
+  })
+    .bindPopup(routePopupHtml(route, pattern))
+    .on('click', () => selectRoute(route.route_id, patternIndex, { returnStopName }))
+    .addTo(shapeLayer);
+}
+
+function routeReturnStopName(options = {}) {
+  if (Object.prototype.hasOwnProperty.call(options, 'returnStopName')) return options.returnStopName;
+  if (state.viewMode === 'stop') return state.stopName;
+  return state.returnStopName;
+}
+
+function selectRoute(routeId, patternIndex, options = {}) {
   const route = findRoute(routeId);
   if (!route) return;
+  const returnStopName = routeReturnStopName(options);
+  state.viewMode = 'route';
   state.routeId = routeId;
   state.patternIndex = Math.max(0, Math.min(patternIndex, route.patterns.length - 1));
+  state.stopName = null;
+  state.returnStopName = returnStopName || null;
+  setDetailHeading('経路一覧・停留所');
   renderRouteList();
   renderDetail();
   drawPattern();
+}
+
+function selectStop(stopName) {
+  const matches = patternsForStop(stopName);
+  if (matches.length === 0) return;
+  state.viewMode = 'stop';
+  state.routeId = null;
+  state.patternIndex = 0;
+  state.stopName = stopName;
+  state.returnStopName = null;
+  setDetailHeading('通過系統一覧');
+  renderRouteList();
+  renderStopDetail(matches);
+  drawStopPatterns(matches);
+}
+
+function clearSelection() {
+  state.viewMode = 'route';
+  state.routeId = null;
+  state.patternIndex = 0;
+  state.stopName = null;
+  state.returnStopName = null;
+  setDetailHeading('経路一覧・停留所');
+  $('detail').classList.remove('stop-mode');
+  $('detail').innerHTML = '<div class="empty">系統または停留所を選択すると、詳細が表示されます。</div>';
+  renderRouteList();
+  drawAllStops();
 }
 
 function drawPattern() {
@@ -254,18 +417,28 @@ function drawPattern() {
     opacity: 0.9,
     lineCap: 'round',
     lineJoin: 'round',
-  }).addTo(shapeLayer);
+  })
+    .bindPopup(routePopupHtml(route, pattern))
+    .addTo(shapeLayer);
+  addRouteClickTarget(pattern, route, state.patternIndex, state.returnStopName);
 
   pattern.stops.forEach((stop) => {
     if (typeof stop.lat !== 'number' || typeof stop.lon !== 'number') return;
     L.circleMarker([stop.lat, stop.lon], {
-      radius: 5,
+      radius: 6,
       color: route.color,
       weight: 2,
       fillColor: '#fff',
       fillOpacity: 1,
     })
       .bindPopup(`<strong>${escapeHtml(stop.seq)}. ${escapeHtml(stop.name)}</strong>`)
+      .bindTooltip(`${stop.seq}. ${escapeHtml(stop.name)}`, {
+        permanent: true,
+        direction: 'top',
+        offset: [0, -8],
+        className: 'stop-label',
+      })
+      .on('click', () => selectStop(stop.name))
       .addTo(stopLayer);
   });
 
@@ -277,29 +450,147 @@ function drawPattern() {
   $('mapStatus').textContent = `${route.short_name} ${pattern.headsign || '行先未設定'} 停留所${pattern.stop_count}件`;
 }
 
+function drawStopPatterns(matches = patternsForStop(state.stopName)) {
+  shapeLayer.clearLayers();
+  stopLayer.clearLayers();
+  const bounds = L.latLngBounds();
+  const stopMarkers = new Map();
+
+  matches.forEach(({ route, pattern, patternIndex, stops }) => {
+    if (Array.isArray(pattern.shape) && pattern.shape.length > 0) {
+      const line = L.polyline(pattern.shape, {
+        color: route.color,
+        weight: 4,
+        opacity: 0.56,
+        lineCap: 'round',
+        lineJoin: 'round',
+      })
+        .bindPopup(routePopupHtml(route, pattern))
+        .on('click', () => selectRoute(route.route_id, patternIndex, { returnStopName: state.stopName }))
+        .addTo(shapeLayer);
+      addRouteClickTarget(pattern, route, patternIndex, state.stopName);
+      bounds.extend(line.getBounds());
+    }
+
+    stops.forEach((stop) => {
+      if (typeof stop.lat !== 'number' || typeof stop.lon !== 'number') return;
+      if (!stopMarkers.has(stopMarkerKey(stop))) stopMarkers.set(stopMarkerKey(stop), stop);
+      bounds.extend([stop.lat, stop.lon]);
+    });
+  });
+
+  stopMarkers.forEach((stop) => {
+    L.circleMarker([stop.lat, stop.lon], {
+      radius: 8,
+      color: '#162033',
+      weight: 3,
+      fillColor: '#fff',
+      fillOpacity: 1,
+    })
+      .bindPopup(`<strong>${escapeHtml(stop.name)}</strong>`)
+      .bindTooltip(escapeHtml(stop.name), {
+        permanent: true,
+        direction: 'top',
+        offset: [0, -10],
+        className: 'stop-label selected',
+      })
+      .on('click', () => selectStop(stop.name))
+      .addTo(stopLayer);
+  });
+
+  setTimeout(() => {
+    map.invalidateSize();
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [42, 42], maxZoom: 16 });
+  }, 50);
+  const routeCount = new Set(matches.map(({ route }) => route.route_id)).size;
+  $('mapStatus').textContent = `${state.stopName} ${routeCount}系統 / ${matches.length}経路パターン`;
+}
+
+function drawAllStops() {
+  shapeLayer.clearLayers();
+  stopLayer.clearLayers();
+  const stops = allStops();
+
+  stops.forEach((stop) => {
+    L.circleMarker([stop.lat, stop.lon], {
+      radius: 4,
+      color: '#52657d',
+      weight: 1,
+      fillColor: '#fff',
+      fillOpacity: 0.82,
+      opacity: 0.82,
+    })
+      .bindPopup(`<strong>${escapeHtml(stop.name)}</strong><br>${stop.routeCount}系統 / ${stop.patternCount}経路パターン`)
+      .bindTooltip(escapeHtml(stop.name), {
+        permanent: false,
+        direction: 'top',
+        offset: [0, -7],
+        className: 'stop-label all-stop-label',
+      })
+      .on('click', () => selectStop(stop.name))
+      .addTo(stopLayer);
+  });
+
+  $('mapStatus').textContent = `停留所または系統を選択してください（停留所 ${stops.length}件）`;
+}
+
 function renderDetail() {
+  $('detail').classList.remove('stop-mode');
   const route = findRoute(state.routeId);
   if (!route) {
     $('detail').innerHTML = '<div class="empty">系統を選択してください。</div>';
     return;
   }
   const p = route.patterns[state.patternIndex];
+  const returnControls = state.returnStopName ? `
+    <div class="detail-actions">
+      <button class="back-detail" type="button">戻る</button>
+      <button class="close-detail" type="button" aria-label="閉じる">×</button>
+    </div>` : '';
   const tabs = route.patterns.map((pt, i) => `
     <button class="pattern-tab ${i === state.patternIndex ? 'active' : ''}" data-index="${i}" style="${i === state.patternIndex ? `background:${route.color};color:${textColorFor(route.color)}` : ''}">
       <strong>${escapeHtml(patternLabel(pt, i))}</strong>
       <span>${tripCountLabel(pt)} / 停留所 ${pt.stop_count}</span>
     </button>`).join('');
-  const stops = p.stops.map((s) => `<li data-lat="${s.lat}" data-lon="${s.lon}"><span class="seq">${String(s.seq).padStart(2, '0')}</span><span class="stop-name">${escapeHtml(s.name)}</span></li>`).join('');
+  const stops = p.stops.map((s) => `<li data-stop-name="${escapeHtml(s.name)}" data-lat="${s.lat}" data-lon="${s.lon}"><span class="seq">${String(s.seq).padStart(2, '0')}</span><span class="stop-name">${escapeHtml(s.name)}</span></li>`).join('');
   $('detail').innerHTML = `
-    <div class="detail-title"><span class="badge" style="background:${route.color};color:${textColorFor(route.color)}">${escapeHtml(route.short_name)}</span><h2>${escapeHtml(p.headsign || '行先未設定')}</h2></div>
+    <div class="detail-title"><span class="badge" style="background:${route.color};color:${textColorFor(route.color)}">${escapeHtml(route.short_name)}</span><h2>${escapeHtml(p.headsign || '行先未設定')}</h2>${returnControls}</div>
     <div class="pattern-scroll"><div class="pattern-tabs">${tabs}</div></div>
     <div class="stop-scroll"><ol class="stop-list">${stops}</ol></div>`;
-  $('detail').querySelectorAll('.pattern-tab').forEach((btn) => btn.addEventListener('click', () => selectRoute(route.route_id, Number(btn.dataset.index))));
+  $('detail').querySelector('.back-detail')?.addEventListener('click', () => selectStop(state.returnStopName));
+  $('detail').querySelector('.close-detail')?.addEventListener('click', clearSelection);
+  $('detail').querySelectorAll('.pattern-tab').forEach((btn) => btn.addEventListener('click', () => selectRoute(route.route_id, Number(btn.dataset.index), { returnStopName: state.returnStopName })));
   $('detail').querySelectorAll('.stop-list li').forEach((li) => li.addEventListener('click', () => {
     const lat = Number(li.dataset.lat);
     const lon = Number(li.dataset.lon);
     if (Number.isFinite(lat) && Number.isFinite(lon)) map.setView([lat, lon], Math.max(map.getZoom(), 16));
+    selectStop(li.dataset.stopName);
   }));
+}
+
+function renderStopDetail(matches = patternsForStop(state.stopName)) {
+  $('detail').classList.add('stop-mode');
+  const routeCount = new Set(matches.map(({ route }) => route.route_id)).size;
+  const items = matches.map(({ route, pattern, patternIndex, stops }) => `
+    <button class="passing-route-card" data-route-id="${escapeHtml(route.route_id)}" data-pattern-index="${patternIndex}">
+      <span class="badge" style="background:${route.color};color:${textColorFor(route.color)}">${escapeHtml(route.short_name)}</span>
+      <span class="info">
+        <strong>${escapeHtml(patternSummary(pattern, '→', DATA.id) || pattern.headsign || '経路未設定')}</strong>
+        <span>${tripCountLabel(pattern)} / 通過位置 ${stops.map((stop) => `${stop.seq}番`).join('、')}</span>
+      </span>
+    </button>`).join('');
+
+  $('detail').innerHTML = `
+    <div class="stop-detail-title">
+      <span class="stop-dot large" aria-hidden="true"></span>
+      <div><h2>${escapeHtml(state.stopName)}</h2><p>${routeCount}系統 / ${matches.length}経路パターン</p></div>
+      <button class="close-detail" type="button" aria-label="停留所選択を閉じる">×</button>
+    </div>
+    <div class="passing-route-list">${items}</div>`;
+  $('detail').querySelector('.close-detail')?.addEventListener('click', clearSelection);
+  $('detail').querySelectorAll('.passing-route-card').forEach((btn) => {
+    btn.addEventListener('click', () => selectRoute(btn.dataset.routeId, Number(btn.dataset.patternIndex), { returnStopName: state.stopName }));
+  });
 }
 
 async function selectDataset(datasetId) {
@@ -308,13 +599,18 @@ async function selectDataset(datasetId) {
   state.datasetId = datasetId;
   state.routeId = null;
   state.patternIndex = 0;
+  state.stopName = null;
+  state.returnStopName = null;
+  state.viewMode = 'route';
   DATA = null;
   $('routeSearch').value = '';
   shapeLayer.clearLayers();
   stopLayer.clearLayers();
   map.setView(info.map_center || [35.0116, 135.7681], info.map_zoom || 12);
   $('mapStatus').textContent = 'データを読み込んでいます...';
+  $('detail').classList.remove('stop-mode');
   $('detail').innerHTML = '<div class="empty">データを読み込んでいます...</div>';
+  setDetailHeading('経路一覧・停留所');
   updateSearchPlaceholder();
   renderCounts();
   renderRouteList();
@@ -325,7 +621,7 @@ async function selectDataset(datasetId) {
     if (state.datasetId !== datasetId) return;
     DATA = dataset;
     map.setView(DATA.map_center || [35.0116, 135.7681], DATA.map_zoom || 12);
-    $('mapStatus').textContent = '系統を選択してください';
+    drawAllStops();
     $('detail').innerHTML = '<div class="empty">系統を選択すると、経路パターンと停留所が表示されます。</div>';
     renderCounts();
     renderRouteList();
